@@ -22,6 +22,11 @@
         <div id="chaosBar" aria-hidden="true">
           <div id="chaosFill"></div>
         </div>
+        <div class="panel-label collapse-label">World Collapse <span id="collapseValue">0%</span></div>
+        <div id="collapseBar" aria-hidden="true">
+          <div id="collapseFill"></div>
+        </div>
+        <div id="parasitePressure">Parasite pressure: 0/45</div>
       </div>
       <div id="objectivePanel" aria-live="polite">Find anomaly cores: 0/3</div>
       <div id="hotbar">
@@ -36,6 +41,12 @@
       <div id="worldMessage" aria-live="assertive"></div>
       <div id="memeMessage" aria-live="polite"></div>
       <div id="debugOverlay"></div>
+    </div>
+
+    <div id="endScreen" aria-live="assertive" aria-hidden="true">
+      <div id="endTitle"></div>
+      <div id="endSubtitle"></div>
+      <div id="endHint">Press R for a new run</div>
     </div>
   </div>
 

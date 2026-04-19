@@ -14,7 +14,7 @@ const WORLD_W = 28;
 const WORLD_H = 12;
 const WORLD_D = 28;
 const WORLD_STORAGE_KEY = "minicraft_world";
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
 const BLOCK_AIR = 0;
 const BLOCK_GRASS = 1;
@@ -105,8 +105,14 @@ const memeMessageEl = document.getElementById("memeMessage");
 const debugOverlayEl = document.getElementById("debugOverlay");
 const chaosFillEl = document.getElementById("chaosFill");
 const chaosValueEl = document.getElementById("chaosValue");
+const collapseFillEl = document.getElementById("collapseFill");
+const collapseValueEl = document.getElementById("collapseValue");
+const parasitePressureEl = document.getElementById("parasitePressure");
 const objectivePanelEl = document.getElementById("objectivePanel");
 const worldMessageEl = document.getElementById("worldMessage");
+const endScreenEl = document.getElementById("endScreen");
+const endTitleEl = document.getElementById("endTitle");
+const endSubtitleEl = document.getElementById("endSubtitle");
 let selectedBlockIndex = 0;
 let hoveredBlock = null;
 let memeMessageTimer = null;
@@ -119,6 +125,19 @@ const maxWorldAnger = 100;
 let worldPhase = 0;
 let collectedCores = 0;
 const totalCores = 3;
+let gameWon = false;
+let gameLost = false;
+let worldCollapse = 0;
+const maxWorldCollapse = 100;
+let parasiteCount = 0;
+let fleshCount = 0;
+let parasitePressure = 0;
+const maxParasiteCountBeforeLoss = 45;
+let gameTimer = 0;
+let highAngerTimer = 0;
+let parasiteScanTimer = 0;
+let coreHintTimer = 420;
+let parasiteReliefTimer = 0;
 const activeEffects = {
   screenShakeTimer: 0,
   screenShakePower: 0,
@@ -169,10 +188,7 @@ window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
 
   if (e.key.toLowerCase() === "r") {
-    generateWorld();
-    resetChaosState();
-    saveWorld();
-    updateHoveredBlock();
+    restartGame();
   }
 
   if (e.key.toLowerCase() === "f") {
@@ -501,40 +517,63 @@ function updateWorldPhase() {
 }
 
 function addWorldAnger(amount) {
+  if (gameWon || gameLost) {
+    return;
+  }
+
   worldAnger += amount;
   clampWorldAnger();
-  updateWorldPhase();
+  if (!gameWon && !gameLost) {
+    updateWorldPhase();
+  }
   updateChaosUI();
 }
 
+function reduceWorldCollapse(amount) {
+  worldCollapse = Math.max(0, worldCollapse - amount);
+  updateCollapseUI();
+}
+
 function handleBrokenBlock(blockId) {
+  if (gameWon || gameLost) {
+    return;
+  }
+
   if (blockId === BLOCK_CORE) {
     collectedCores = Math.min(totalCores, collectedCores + 1);
-    addWorldAnger(12);
-    triggerScreenShake(11, 48);
-    triggerDrift(150);
-    showWorldMessage(`Anomaly core stolen: ${collectedCores}/${totalCores}`, 180);
+    addWorldAnger(-22);
+    reduceWorldCollapse(18);
+    parasiteReliefTimer = 360;
+    triggerScreenShake(7, 34);
+    showWorldMessage(`Core stabilized: ${collectedCores}/${totalCores}`, 190);
     activeEffects.debugCorruptionTimer = Math.max(activeEffects.debugCorruptionTimer, 360);
+    coreHintTimer = 300;
+    updateGameState();
     return;
   }
 
   if (blockId === BLOCK_EYE) {
-    addWorldAnger(10);
+    addWorldAnger(14);
+    worldCollapse = Math.min(maxWorldCollapse, worldCollapse + 2.5);
     triggerScreenShake(12, 54);
     activeEffects.liarHotbarTimer = Math.max(activeEffects.liarHotbarTimer, 240);
-    showWorldMessage("The eye screamed without sound", 160);
+    showNearestCoreHint("The eye screamed toward");
     return;
   }
 
   if (blockId === BLOCK_PARASITE) {
     addWorldAnger(-4);
+    reduceWorldCollapse(3.5);
+    parasiteReliefTimer = Math.max(parasiteReliefTimer, 120);
     triggerScreenShake(3, 18);
-    showWorldMessage("Parasite growth removed", 90);
+    showWorldMessage("Parasite growth burned back", 90);
+    scanParasitePressure();
     return;
   }
 
   if (blockId === BLOCK_FLESH) {
-    addWorldAnger(1.5);
+    addWorldAnger(-1);
+    reduceWorldCollapse(1);
     activeEffects.coughTimer = Math.max(activeEffects.coughTimer, 45);
     return;
   }
@@ -546,6 +585,17 @@ function resetChaosState() {
   worldAnger = 0;
   worldPhase = 0;
   collectedCores = 0;
+  gameWon = false;
+  gameLost = false;
+  worldCollapse = 0;
+  parasiteCount = 0;
+  fleshCount = 0;
+  parasitePressure = 0;
+  gameTimer = 0;
+  highAngerTimer = 0;
+  parasiteScanTimer = 0;
+  coreHintTimer = 420;
+  parasiteReliefTimer = 0;
   messageText = "";
   messageTimer = 0;
 
@@ -556,8 +606,34 @@ function resetChaosState() {
   activeEffects.phaseEventCooldown = 120;
   activeEffects.parasiteCooldown = 60;
   activeEffects.eyeCooldown = 90;
+  player.x = WORLD_W / 2;
+  player.y = WORLD_H - 2;
+  player.z = WORLD_D / 2;
+  gameRoot.style.setProperty("--chaos-x", "0px");
+  gameRoot.style.setProperty("--chaos-y", "0px");
+  document.body.classList.remove(
+    "chaos-tilt",
+    "chaos-upside-down",
+    "chaos-invert",
+    "chaos-wave",
+    "chaos-debug",
+    "game-won",
+    "game-lost"
+  );
+  endScreenEl.classList.remove("visible");
+  endScreenEl.setAttribute("aria-hidden", "true");
   updateHotbar();
   updateChaosUI();
+  updateCollapseUI();
+}
+
+function restartGame() {
+  generateWorld();
+  resetChaosState();
+  scanParasitePressure();
+  saveWorld();
+  updateHoveredBlock();
+  showWorldMessage("New run. Find anomaly cores.", 140);
 }
 
 function triggerScreenShake(power, duration) {
@@ -607,12 +683,20 @@ function updateChaosUI() {
   chaosFillEl.style.width = `${percent}%`;
   chaosValueEl.textContent = `${percent}%`;
 
-  if (collectedCores < totalCores) {
-    objectiveText = `Collect anomaly cores: ${collectedCores}/${totalCores}`;
-  } else if (worldPhase >= 3) {
-    objectiveText = "Survive phase 3";
-  } else {
+  if (gameWon) {
+    objectiveText = "Reality is stable. Probably.";
+  } else if (gameLost) {
+    objectiveText = "Run failed. Press R.";
+  } else if (parasitePressure >= maxParasiteCountBeforeLoss * 0.72) {
     objectiveText = "Destroy parasite growth";
+  } else if (worldPhase >= 3) {
+    objectiveText = `Survive and extract the last core: ${collectedCores}/${totalCores}`;
+  } else if (collectedCores === 0) {
+    objectiveText = `Find anomaly cores: ${collectedCores}/${totalCores}`;
+  } else if (collectedCores < totalCores) {
+    objectiveText = `Return stability cores: ${collectedCores}/${totalCores}`;
+  } else {
+    objectiveText = "Return to stability";
   }
 
   objectivePanelEl.textContent = objectiveText;
@@ -683,8 +767,11 @@ function updateDebugOverlay() {
     corrupted ? "!!! ENGINE PANIC TELEMETRY !!!" : "=== FAKE ENGINE TELEMETRY ===",
     `FPS: ${fps}`,
     `World anger: ${worldAnger.toFixed(1)}/${maxWorldAnger}`,
+    `World collapse: ${worldCollapse.toFixed(1)}/${maxWorldCollapse}`,
     `Chaos phase: ${worldPhase}`,
     `Cores stolen: ${collectedCores}/${totalCores}`,
+    `Parasite pressure: ${Math.round(parasitePressure)}/${maxParasiteCountBeforeLoss}`,
+    `Run timer: ${Math.floor(gameTimer / 60)}s`,
     `Screen truth: ${activeEffects.liarHotbarTimer > 0 ? "lying" : "unverified"}`,
     `Chunk mood: ${Math.round((player.x + player.z) * 3) % 7}/6`,
     `Isometric entropy: ${(Math.sin(player.x) * Math.cos(player.z) * 100).toFixed(2)}%`,
@@ -822,6 +909,208 @@ function findBlocks(blockId, limit = Infinity) {
   return results;
 }
 
+function scanParasitePressure() {
+  parasiteCount = 0;
+  fleshCount = 0;
+
+  for (let x = 0; x < WORLD_W; x += 1) {
+    for (let y = 0; y < WORLD_H; y += 1) {
+      for (let z = 0; z < WORLD_D; z += 1) {
+        const block = getBlock(x, y, z);
+
+        if (block === BLOCK_PARASITE) {
+          parasiteCount += 1;
+        } else if (block === BLOCK_FLESH) {
+          fleshCount += 1;
+        }
+      }
+    }
+  }
+
+  parasitePressure = parasiteCount + fleshCount * 0.5;
+  updateCollapseUI();
+}
+
+function updateCollapseUI() {
+  const collapsePercent = Math.round((worldCollapse / maxWorldCollapse) * 100);
+  collapseFillEl.style.width = `${collapsePercent}%`;
+  collapseValueEl.textContent = `${collapsePercent}%`;
+  parasitePressureEl.textContent = `Parasite pressure: ${Math.round(parasitePressure)}/${maxParasiteCountBeforeLoss}`;
+}
+
+function getNearestCore() {
+  let nearestCore = null;
+  let nearestDistance = Infinity;
+
+  for (let x = 0; x < WORLD_W; x += 1) {
+    for (let y = 0; y < WORLD_H; y += 1) {
+      for (let z = 0; z < WORLD_D; z += 1) {
+        if (getBlock(x, y, z) !== BLOCK_CORE) {
+          continue;
+        }
+
+        const dx = x - player.x;
+        const dy = y - player.y;
+        const dz = z - player.z;
+        const distance = dx * dx + dy * dy + dz * dz;
+
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestCore = { x, y, z, dx, dy, dz };
+        }
+      }
+    }
+  }
+
+  return nearestCore;
+}
+
+function getCoreDirection(core) {
+  if (core === null) {
+    return "";
+  }
+
+  if (Math.abs(core.dy) > Math.max(Math.abs(core.dx), Math.abs(core.dz)) && Math.abs(core.dy) > 1.5) {
+    return core.dy > 0 ? "above you" : "below you";
+  }
+
+  if (Math.abs(core.dx) > Math.abs(core.dz)) {
+    return core.dx > 0 ? "east" : "west";
+  }
+
+  return core.dz > 0 ? "south" : "north";
+}
+
+function showNearestCoreHint(prefix = "The core is") {
+  const nearestCore = getNearestCore();
+
+  if (nearestCore === null) {
+    showWorldMessage("No cores remain. Make reality accept it.", 150);
+    return;
+  }
+
+  const direction = getCoreDirection(nearestCore);
+  showWorldMessage(`${prefix} ${direction}`, 145);
+}
+
+function triggerVictory() {
+  if (gameWon || gameLost) {
+    return;
+  }
+
+  gameWon = true;
+  worldAnger = 0;
+  worldCollapse = 0;
+  worldPhase = 0;
+  messageTimer = 0;
+
+  for (const key of Object.keys(activeEffects)) {
+    activeEffects[key] = 0;
+  }
+
+  activeEffects.phaseEventCooldown = 9999;
+  activeEffects.parasiteCooldown = 9999;
+  activeEffects.eyeCooldown = 9999;
+  gameRoot.style.setProperty("--chaos-x", "0px");
+  gameRoot.style.setProperty("--chaos-y", "0px");
+  document.body.classList.remove("chaos-tilt", "chaos-upside-down", "chaos-invert", "chaos-wave", "chaos-debug", "game-lost");
+  document.body.classList.add("game-won");
+  endTitleEl.textContent = "Reality is stable. Probably.";
+  endSubtitleEl.textContent = "You convinced geometry to stand down.";
+  endScreenEl.classList.add("visible");
+  endScreenEl.setAttribute("aria-hidden", "false");
+  updateHotbar();
+  updateChaosUI();
+  updateCollapseUI();
+}
+
+function triggerLoss(reason) {
+  if (gameWon || gameLost) {
+    return;
+  }
+
+  gameLost = true;
+  messageTimer = 0;
+  activeEffects.screenShakeTimer = 9999;
+  activeEffects.screenShakePower = 6;
+  activeEffects.driftTimer = 9999;
+  activeEffects.driftDuration = 9999;
+  activeEffects.debugCorruptionTimer = 9999;
+  document.body.classList.remove("game-won");
+  document.body.classList.add("game-lost", "chaos-wave");
+  endTitleEl.textContent = "The world replaced you";
+  endSubtitleEl.textContent = reason;
+  endScreenEl.classList.add("visible");
+  endScreenEl.setAttribute("aria-hidden", "false");
+  updateChaosUI();
+  updateCollapseUI();
+}
+
+function updateGameState() {
+  if (gameWon || gameLost) {
+    updateChaosUI();
+    updateCollapseUI();
+    return;
+  }
+
+  if (parasiteScanTimer <= 0) {
+    scanParasitePressure();
+    parasiteScanTimer = 45;
+  } else {
+    parasiteScanTimer -= 1;
+  }
+
+  if (worldAnger >= 72) {
+    highAngerTimer += 1;
+  } else {
+    highAngerTimer = Math.max(0, highAngerTimer - 2);
+  }
+
+  const timePressure = Math.min(0.018, gameTimer / 72000);
+  const parasiteRatio = parasitePressure / maxParasiteCountBeforeLoss;
+  let collapseDelta = timePressure + parasiteRatio * 0.018;
+
+  if (worldPhase >= 2) {
+    collapseDelta += worldPhase * 0.008;
+  }
+
+  if (highAngerTimer > 180) {
+    collapseDelta += 0.04 + (worldAnger - 72) * 0.0015;
+  }
+
+  if (parasiteReliefTimer > 0) {
+    parasiteReliefTimer -= 1;
+    collapseDelta *= 0.25;
+  }
+
+  worldCollapse = Math.max(0, Math.min(maxWorldCollapse, worldCollapse + collapseDelta));
+
+  if (collectedCores >= totalCores) {
+    triggerVictory();
+    return;
+  }
+
+  if (parasitePressure >= maxParasiteCountBeforeLoss) {
+    triggerLoss("You were outvoted by blocks.");
+    return;
+  }
+
+  if (worldCollapse >= maxWorldCollapse) {
+    triggerLoss("Geometry revoked your permissions.");
+    return;
+  }
+
+  if (coreHintTimer <= 0 && collectedCores < totalCores) {
+    showNearestCoreHint(Math.random() > 0.5 ? "The core is" : "Something hums");
+    coreHintTimer = Math.max(240, 560 - worldPhase * 70 - Math.floor(gameTimer / 900));
+  } else {
+    coreHintTimer -= 1;
+  }
+
+  updateChaosUI();
+  updateCollapseUI();
+}
+
 function trySpreadParasite(origin) {
   const neighbors = [
     [1, 0, 0],
@@ -855,10 +1144,15 @@ function trySpreadParasite(origin) {
 }
 
 function updateAnomalies() {
+  if (gameWon || gameLost || parasiteReliefTimer > 0) {
+    return;
+  }
+
   if (activeEffects.parasiteCooldown === 0) {
     const parasites = findBlocks(BLOCK_PARASITE);
     let spreads = 0;
-    const maxSpreads = worldPhase >= 3 ? 3 : worldPhase >= 2 ? 2 : 1;
+    const timerPressure = gameTimer > 3600 ? 1 : 0;
+    const maxSpreads = worldPhase >= 3 ? 3 + timerPressure : worldPhase >= 2 ? 2 : 1;
 
     for (let i = 0; i < parasites.length && spreads < maxSpreads; i += 1) {
       const parasite = parasites[Math.floor(Math.random() * parasites.length)];
@@ -873,7 +1167,7 @@ function updateAnomalies() {
       saveWorld();
     }
 
-    activeEffects.parasiteCooldown = worldPhase >= 3 ? 45 : 75;
+    activeEffects.parasiteCooldown = Math.max(32, (worldPhase >= 3 ? 45 : 75) - Math.floor(gameTimer / 1200));
   }
 
   if (activeEffects.eyeCooldown === 0) {
@@ -1080,12 +1374,19 @@ function render() {
 }
 
 function update() {
-  updatePlayer();
-  updateScreenEffects();
-  triggerPhaseEvents();
-  updateAnomalies();
+  if (!gameWon && !gameLost) {
+    gameTimer += 1;
+    updatePlayer();
+  }
 
-  if (!keys["w"] && !keys["a"] && !keys["s"] && !keys["d"] && !keys["q"] && !keys["e"]) {
+  updateScreenEffects();
+
+  if (!gameWon && !gameLost) {
+    triggerPhaseEvents();
+    updateAnomalies();
+  }
+
+  if (!gameWon && !gameLost && !keys["w"] && !keys["a"] && !keys["s"] && !keys["d"] && !keys["q"] && !keys["e"]) {
     worldAnger -= 0.015;
     clampWorldAnger();
   }
@@ -1094,10 +1395,12 @@ function update() {
     messageTimer -= 1;
   }
 
-  updateWorldPhase();
+  if (!gameWon && !gameLost) {
+    updateWorldPhase();
+  }
   updateHoveredBlock();
+  updateGameState();
   updateUI();
-  updateChaosUI();
   updateDebugOverlay();
 }
 
@@ -1106,7 +1409,7 @@ canvas.addEventListener("contextmenu", (e) => {
 });
 
 canvas.addEventListener("mousedown", (e) => {
-  if (hoveredBlock === null) {
+  if (gameWon || gameLost || hoveredBlock === null) {
     return;
   }
 
@@ -1152,5 +1455,7 @@ if (!loadWorld()) {
 
 updateHotbar();
 updateUI();
+scanParasitePressure();
 updateChaosUI();
+updateCollapseUI();
 loop();

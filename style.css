@@ -42,6 +42,16 @@ body.chaos-wave canvas {
   animation: chaosWave 900ms ease-in-out infinite alternate;
 }
 
+body.game-won #gameRoot {
+  filter: saturate(0.82) brightness(1.12);
+}
+
+body.game-lost #gameRoot {
+  --chaos-tilt-rot: 5deg;
+  --chaos-scale: 1.04;
+  filter: sepia(0.55) saturate(2.2) hue-rotate(315deg) contrast(1.22);
+}
+
 @keyframes chaosWave {
   from {
     filter: saturate(1.05) contrast(1);
@@ -125,6 +135,11 @@ canvas {
   text-shadow: 0 3px 8px rgba(0, 0, 0, 0.75);
 }
 
+.collapse-label {
+  margin-top: 14px;
+  color: #d8f0ff;
+}
+
 #chaosBar {
   height: 28px;
   overflow: hidden;
@@ -143,9 +158,36 @@ canvas {
   transition: width 160ms ease-out;
 }
 
+#collapseBar {
+  height: 24px;
+  overflow: hidden;
+  border: 3px solid rgba(202, 231, 255, 0.76);
+  border-radius: 999px;
+  background: rgba(3, 6, 10, 0.62);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.72);
+}
+
+#collapseFill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #76e7ff, #fdff86 48%, #ff315d);
+  box-shadow: 0 0 22px rgba(255, 49, 93, 0.78);
+  transition: width 180ms ease-out;
+}
+
+#parasitePressure {
+  margin-top: 10px;
+  color: #bfffe0;
+  font-size: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.75);
+}
+
 #objectivePanel {
   position: absolute;
-  top: 104px;
+  top: 184px;
   right: 20px;
   max-width: min(520px, calc(100vw - 40px));
   padding: 12px 18px;
@@ -255,7 +297,7 @@ canvas {
 
 #debugOverlay {
   position: absolute;
-  top: 166px;
+  top: 250px;
   right: 20px;
   min-width: 250px;
   padding: 10px 12px;
@@ -281,4 +323,73 @@ body.chaos-debug #debugOverlay {
 
 #debugOverlay.visible {
   opacity: 1;
+}
+
+#endScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  padding: 28px;
+  background: rgba(3, 5, 9, 0.74);
+  color: #fff7a8;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+#endScreen.visible {
+  opacity: 1;
+}
+
+#endTitle {
+  max-width: min(980px, calc(100vw - 56px));
+  font-size: 76px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 6px 0 rgba(0, 0, 0, 0.7), 0 0 36px rgba(255, 247, 168, 0.48);
+}
+
+#endSubtitle {
+  max-width: min(780px, calc(100vw - 56px));
+  color: #d8f0ff;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.82);
+}
+
+#endHint {
+  color: #bfffe0;
+  font-size: 22px;
+  font-weight: 900;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.82);
+}
+
+body.game-lost #endScreen {
+  background: rgba(42, 2, 10, 0.82);
+  color: #ffb0bf;
+}
+
+body.game-won #endScreen {
+  background: rgba(3, 25, 28, 0.76);
+  color: #b5fff1;
+}
+
+@media (max-width: 720px) {
+  #endTitle {
+    font-size: 42px;
+  }
+
+  #endSubtitle {
+    font-size: 22px;
+  }
+
+  #endHint {
+    font-size: 18px;
+  }
 }
