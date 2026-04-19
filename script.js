@@ -95,7 +95,7 @@ const BLOCK_COLORS = {
 };
 
 let world = [];
-const player = { x: WORLD_W / 2, y: WORLD_H - 2, z: WORLD_D / 2, speed: 0.08 };
+const player = { x: WORLD_W / 2, y: WORLD_H - 2, z: WORLD_D / 2, speed: 0.12 };
 const keys = {};
 const hotbarBlocks = [BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_WOOD, BLOCK_LEAVES, BLOCK_SAND];
 const coordsEl = document.getElementById("coords");
@@ -113,6 +113,7 @@ const worldMessageEl = document.getElementById("worldMessage");
 const endScreenEl = document.getElementById("endScreen");
 const endTitleEl = document.getElementById("endTitle");
 const endSubtitleEl = document.getElementById("endSubtitle");
+const introOverlayEl = document.getElementById("introOverlay");
 let selectedBlockIndex = 0;
 let hoveredBlock = null;
 let memeMessageTimer = null;
@@ -138,6 +139,23 @@ let highAngerTimer = 0;
 let parasiteScanTimer = 0;
 let coreHintTimer = 420;
 let parasiteReliefTimer = 0;
+let maxAngerTimer = 0;
+const maxAngerThresholdFrames = 3600;
+let finalMadnessUnlocked = false;
+let finalMadnessActive = false;
+let introTimer = 0;
+const introDurationFrames = 300;
+let introVisible = false;
+const nukeState = {
+  active: false,
+  phase: "idle",
+  timer: 0,
+  targetX: 0,
+  targetY: 0,
+  targetZ: 0,
+  radius: 0,
+  pulse: 0
+};
 const activeEffects = {
   screenShakeTimer: 0,
   screenShakePower: 0,
@@ -185,14 +203,24 @@ const corruptionLines = [
 ];
 
 window.addEventListener("keydown", (e) => {
-  keys[e.key.toLowerCase()] = true;
+  const lowered = e.key.toLowerCase();
+  keys[lowered] = true;
+  keys[e.key] = true;
 
-  if (e.key.toLowerCase() === "r") {
+  if (lowered === "r") {
     restartGame();
   }
 
-  if (e.key.toLowerCase() === "f") {
+  if (lowered === "f") {
     showWorldPhrase();
+  }
+
+  if ((e.key === " " || e.key === "Enter") && introVisible) {
+    hideIntroOverlay();
+  }
+
+  if (lowered === "b") {
+    startAtomicBomb();
   }
 
   if (e.key === "`") {
@@ -208,7 +236,9 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("keyup", (e) => {
-  keys[e.key.toLowerCase()] = false;
+  const lowered = e.key.toLowerCase();
+  keys[lowered] = false;
+  keys[e.key] = false;
 });
 
 function createEmptyWorld() {
@@ -428,17 +458,37 @@ function worldToScreen(x, y, z) {
   };
 }
 
+function movingForward() {
+  return keys["w"] || keys["arrowup"];
+}
+
+function movingBackward() {
+  return keys["s"] || keys["arrowdown"];
+}
+
+function movingLeft() {
+  return keys["a"] || keys["arrowleft"];
+}
+
+function movingRight() {
+  return keys["d"] || keys["arrowright"];
+}
+
+function isMovementPressed() {
+  return movingForward() || movingBackward() || movingLeft() || movingRight() || keys["q"] || keys["e"];
+}
+
 function updatePlayer() {
-  if (keys["w"]) {
+  if (movingForward()) {
     player.z -= player.speed;
   }
-  if (keys["s"]) {
+  if (movingBackward()) {
     player.z += player.speed;
   }
-  if (keys["a"]) {
+  if (movingLeft()) {
     player.x -= player.speed;
   }
-  if (keys["d"]) {
+  if (movingRight()) {
     player.x += player.speed;
   }
   if (keys["q"]) {
@@ -596,8 +646,18 @@ function resetChaosState() {
   parasiteScanTimer = 0;
   coreHintTimer = 420;
   parasiteReliefTimer = 0;
+  maxAngerTimer = 0;
+  finalMadnessUnlocked = false;
+  finalMadnessActive = false;
   messageText = "";
   messageTimer = 0;
+  introTimer = 0;
+  introVisible = false;
+  nukeState.active = false;
+  nukeState.phase = "idle";
+  nukeState.timer = 0;
+  nukeState.radius = 0;
+  nukeState.pulse = 0;
 
   for (const key of Object.keys(activeEffects)) {
     activeEffects[key] = 0;
@@ -611,11 +671,15 @@ function resetChaosState() {
   player.z = WORLD_D / 2;
   gameRoot.style.setProperty("--chaos-x", "0px");
   gameRoot.style.setProperty("--chaos-y", "0px");
+  gameRoot.style.setProperty("--chaos-wave-rot", "0deg");
+  gameRoot.style.setProperty("--chaos-spin-rot", "0deg");
+  gameRoot.style.setProperty("--chaos-scale", "1");
   document.body.classList.remove(
     "chaos-tilt",
     "chaos-upside-down",
     "chaos-invert",
     "chaos-wave",
+    "chaos-meltdown",
     "chaos-debug",
     "game-won",
     "game-lost"
@@ -625,6 +689,7 @@ function resetChaosState() {
   updateHotbar();
   updateChaosUI();
   updateCollapseUI();
+  hideIntroOverlay();
 }
 
 function restartGame() {
@@ -634,6 +699,7 @@ function restartGame() {
   saveWorld();
   updateHoveredBlock();
   showWorldMessage("New run. Find anomaly cores.", 140);
+  showIntroOverlay();
 }
 
 function triggerScreenShake(power, duration) {
@@ -751,6 +817,148 @@ function showWorldPhrase() {
   }, 2400);
 }
 
+function showIntroOverlay() {
+  introTimer = introDurationFrames;
+  introVisible = true;
+  introOverlayEl.classList.add("visible");
+}
+
+function hideIntroOverlay() {
+  introTimer = 0;
+  introVisible = false;
+  introOverlayEl.classList.remove("visible");
+}
+
+function updateIntroOverlay() {
+  if (!introVisible) {
+    return;
+  }
+
+  introTimer = Math.max(0, introTimer - 1);
+
+  if (introTimer === 0) {
+    hideIntroOverlay();
+  }
+}
+
+function startAtomicBomb() {
+  if (gameWon || gameLost || nukeState.active || hoveredBlock === null) {
+    if (hoveredBlock === null && !gameWon && !gameLost && !nukeState.active) {
+      showWorldMessage("No lock: aim at a block first", 90);
+    }
+    return;
+  }
+
+  nukeState.active = true;
+  nukeState.phase = "warning";
+  nukeState.timer = 54;
+  nukeState.targetX = hoveredBlock.x;
+  nukeState.targetY = hoveredBlock.y;
+  nukeState.targetZ = hoveredBlock.z;
+  nukeState.radius = 5;
+  nukeState.pulse = 0;
+  triggerScreenShake(7, 40);
+  showWorldMessage("Nuclear solution armed", 120);
+}
+
+function detonateAtomicBomb() {
+  const radiusSq = nukeState.radius * nukeState.radius;
+  let destroyedBlocks = 0;
+
+  for (let x = nukeState.targetX - nukeState.radius; x <= nukeState.targetX + nukeState.radius; x += 1) {
+    for (let y = nukeState.targetY - nukeState.radius; y <= nukeState.targetY + nukeState.radius; y += 1) {
+      for (let z = nukeState.targetZ - nukeState.radius; z <= nukeState.targetZ + nukeState.radius; z += 1) {
+        if (!inBounds(x, y, z)) {
+          continue;
+        }
+
+        const dx = x - nukeState.targetX;
+        const dy = y - nukeState.targetY;
+        const dz = z - nukeState.targetZ;
+        const distSq = dx * dx + dy * dy + dz * dz;
+
+        if (distSq > radiusSq) {
+          continue;
+        }
+
+        const block = getBlock(x, y, z);
+        if (block === BLOCK_AIR) {
+          continue;
+        }
+
+        setBlock(x, y, z, BLOCK_AIR);
+        destroyedBlocks += 1;
+      }
+    }
+  }
+
+  for (let i = 0; i < 14; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = nukeState.radius + Math.random() * 1.5;
+    const x = Math.round(nukeState.targetX + Math.cos(angle) * dist);
+    const z = Math.round(nukeState.targetZ + Math.sin(angle) * dist);
+    const y = getTopHeight(x, z) + 1;
+
+    if (inBounds(x, y, z) && getBlock(x, y, z) === BLOCK_AIR) {
+      setBlock(x, y, z, Math.random() > 0.58 ? BLOCK_PARASITE : BLOCK_FLESH);
+    }
+  }
+
+  addWorldAnger(24);
+  worldCollapse = Math.min(maxWorldCollapse, worldCollapse + 14);
+  activeEffects.invertTimer = Math.max(activeEffects.invertTimer, 28);
+  activeEffects.debugCorruptionTimer = Math.max(activeEffects.debugCorruptionTimer, 320);
+  triggerDrift(170);
+  triggerScreenShake(20, 72);
+  scanParasitePressure();
+  updateCollapseUI();
+  showWorldMessage(`Detonation complete (${destroyedBlocks} blocks)`, 150);
+  saveWorld();
+}
+
+function updateAtomicBomb() {
+  if (!nukeState.active) {
+    return;
+  }
+
+  nukeState.timer = Math.max(0, nukeState.timer - 1);
+  nukeState.pulse += 1;
+
+  if (nukeState.phase === "warning") {
+    triggerScreenShake(8, 8);
+
+    if (nukeState.timer === 0) {
+      nukeState.phase = "flash";
+      nukeState.timer = 16;
+      activeEffects.invertTimer = Math.max(activeEffects.invertTimer, 20);
+      triggerScreenShake(24, 28);
+    }
+    return;
+  }
+
+  if (nukeState.phase === "flash") {
+    if (nukeState.timer === 0) {
+      nukeState.phase = "detonation";
+      nukeState.timer = 1;
+      detonateAtomicBomb();
+    }
+    return;
+  }
+
+  if (nukeState.phase === "detonation") {
+    nukeState.phase = "cooldown";
+    nukeState.timer = 48;
+    return;
+  }
+
+  if (nukeState.phase === "cooldown" && nukeState.timer === 0) {
+    nukeState.active = false;
+    nukeState.phase = "idle";
+    nukeState.radius = 0;
+    nukeState.pulse = 0;
+  }
+}
+
 function updateDebugOverlay() {
   if (!debugOverlayEnabled) {
     debugOverlayEl.classList.remove("visible");
@@ -814,6 +1022,9 @@ function updateScreenEffects() {
 
   let x = 0;
   let y = 0;
+  let waveRot = 0;
+  let spinRot = 0;
+  let scale = 1;
 
   if (activeEffects.screenShakeTimer > 0) {
     const fade = activeEffects.screenShakeTimer / Math.max(1, activeEffects.screenShakeTimer + 12);
@@ -828,12 +1039,32 @@ function updateScreenEffects() {
     y += Math.cos(elapsed * 0.035) * 10;
   }
 
+  if (nukeState.active && nukeState.phase !== "idle") {
+    const boomPulse = Math.sin(nukeState.pulse * 0.45);
+    x += boomPulse * 8;
+    y += Math.cos(nukeState.pulse * 0.42) * 5;
+    waveRot += boomPulse * 3.8;
+  }
+
+  if (finalMadnessActive) {
+    const t = gameTimer;
+    x += Math.sin(t * 0.07) * 36 + Math.sin(t * 0.19) * 12;
+    y += Math.cos(t * 0.08) * 20 + Math.sin(t * 0.14) * 8;
+    waveRot += Math.sin(t * 0.06) * 12;
+    spinRot += (t * 0.22) % 360;
+    scale += Math.sin(t * 0.09) * 0.02;
+  }
+
   gameRoot.style.setProperty("--chaos-x", `${x.toFixed(2)}px`);
   gameRoot.style.setProperty("--chaos-y", `${y.toFixed(2)}px`);
+  gameRoot.style.setProperty("--chaos-wave-rot", `${waveRot.toFixed(2)}deg`);
+  gameRoot.style.setProperty("--chaos-spin-rot", `${spinRot.toFixed(2)}deg`);
+  gameRoot.style.setProperty("--chaos-scale", `${scale.toFixed(4)}`);
   document.body.classList.toggle("chaos-tilt", worldPhase >= 2 || activeEffects.driftTimer > 0);
   document.body.classList.toggle("chaos-invert", activeEffects.invertTimer > 0 || activeEffects.blinkTimer > 0);
   document.body.classList.toggle("chaos-upside-down", activeEffects.upsideDownTimer > 0);
   document.body.classList.toggle("chaos-wave", activeEffects.driftTimer > 0 || worldPhase >= 3);
+  document.body.classList.toggle("chaos-meltdown", finalMadnessActive);
   document.body.classList.toggle("chaos-debug", worldPhase >= 2 || activeEffects.debugCorruptionTimer > 0);
 
   if (wasLying || activeEffects.liarHotbarTimer > 0) {
@@ -847,6 +1078,7 @@ function triggerPhaseEvents() {
   }
 
   const roll = Math.random();
+  const madnessBoost = finalMadnessActive ? 1 : 0;
 
   if (worldPhase === 1) {
     if (roll < 0.55) {
@@ -855,24 +1087,24 @@ function triggerPhaseEvents() {
       showWorldMessage("Something moved underground", 110);
     }
 
-    activeEffects.phaseEventCooldown = 300 + Math.floor(Math.random() * 180);
+    activeEffects.phaseEventCooldown = (finalMadnessActive ? 170 : 300) + Math.floor(Math.random() * (finalMadnessActive ? 90 : 180));
     return;
   }
 
   if (worldPhase === 2) {
     if (roll < 0.34) {
-      activeEffects.liarHotbarTimer = 260;
+      activeEffects.liarHotbarTimer = 260 + madnessBoost * 220;
       showWorldMessage("Inventory translated itself", 120);
     } else if (roll < 0.68) {
-      triggerDrift(180);
+      triggerDrift(180 + madnessBoost * 120);
     } else {
-      activeEffects.coughTimer = 80;
-      activeEffects.debugCorruptionTimer = 220;
+      activeEffects.coughTimer = 80 + madnessBoost * 50;
+      activeEffects.debugCorruptionTimer = 220 + madnessBoost * 210;
       showWorldMessage("The world coughed", 120);
-      triggerScreenShake(4, 22);
+      triggerScreenShake(4 + madnessBoost * 2, 22 + madnessBoost * 20);
     }
 
-    activeEffects.phaseEventCooldown = 240 + Math.floor(Math.random() * 160);
+    activeEffects.phaseEventCooldown = (finalMadnessActive ? 130 : 240) + Math.floor(Math.random() * (finalMadnessActive ? 90 : 160));
     return;
   }
 
@@ -881,12 +1113,12 @@ function triggerPhaseEvents() {
   } else if (roll < 0.62) {
     triggerRealityBlink();
   } else {
-    activeEffects.liarHotbarTimer = 360;
-    triggerDrift(220);
+    activeEffects.liarHotbarTimer = 360 + madnessBoost * 300;
+    triggerDrift(220 + madnessBoost * 160);
     showWorldMessage("The interface is making things up", 130);
   }
 
-  activeEffects.phaseEventCooldown = 180 + Math.floor(Math.random() * 140);
+  activeEffects.phaseEventCooldown = (finalMadnessActive ? 90 : 180) + Math.floor(Math.random() * (finalMadnessActive ? 80 : 140));
 }
 
 function findBlocks(blockId, limit = Infinity) {
@@ -1013,7 +1245,10 @@ function triggerVictory() {
   activeEffects.eyeCooldown = 9999;
   gameRoot.style.setProperty("--chaos-x", "0px");
   gameRoot.style.setProperty("--chaos-y", "0px");
-  document.body.classList.remove("chaos-tilt", "chaos-upside-down", "chaos-invert", "chaos-wave", "chaos-debug", "game-lost");
+  gameRoot.style.setProperty("--chaos-wave-rot", "0deg");
+  gameRoot.style.setProperty("--chaos-spin-rot", "0deg");
+  gameRoot.style.setProperty("--chaos-scale", "1");
+  document.body.classList.remove("chaos-tilt", "chaos-upside-down", "chaos-invert", "chaos-wave", "chaos-meltdown", "chaos-debug", "game-lost");
   document.body.classList.add("game-won");
   endTitleEl.textContent = "Reality is stable. Probably.";
   endSubtitleEl.textContent = "You convinced geometry to stand down.";
@@ -1362,6 +1597,40 @@ function renderWorld() {
   }
 }
 
+function renderAtomicBombOverlay() {
+  if (!nukeState.active || nukeState.phase === "idle") {
+    return;
+  }
+
+  const center = worldToScreen(nukeState.targetX, nukeState.targetY, nukeState.targetZ);
+  const pulse = Math.max(0, Math.sin(nukeState.pulse * 0.35));
+
+  if (nukeState.phase === "warning") {
+    const radius = 38 + pulse * 34;
+    ctx.strokeStyle = `rgba(255, 90, 70, ${0.65 + pulse * 0.35})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y - BLOCK_H / 2, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
+  if (nukeState.phase === "flash" || nukeState.phase === "detonation" || nukeState.phase === "cooldown") {
+    const cooldownFactor = nukeState.phase === "cooldown" ? nukeState.timer / 48 : 1;
+    const alpha = Math.min(0.95, 0.42 + pulse * 0.5) * cooldownFactor;
+    ctx.fillStyle = `rgba(255, 245, 190, ${alpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const shockRadius = (1 - cooldownFactor) * 1600 + pulse * 40;
+    ctx.strokeStyle = `rgba(255, 180, 90, ${0.72 * cooldownFactor})`;
+    ctx.lineWidth = 14 * cooldownFactor;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y - BLOCK_H / 2, shockRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+}
+
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -1370,13 +1639,17 @@ function render() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   renderWorld();
+  renderAtomicBombOverlay();
   drawHoveredOutline();
 }
 
 function update() {
+  updateIntroOverlay();
+
   if (!gameWon && !gameLost) {
     gameTimer += 1;
     updatePlayer();
+    updateAtomicBomb();
   }
 
   updateScreenEffects();
@@ -1386,9 +1659,27 @@ function update() {
     updateAnomalies();
   }
 
-  if (!gameWon && !gameLost && !keys["w"] && !keys["a"] && !keys["s"] && !keys["d"] && !keys["q"] && !keys["e"]) {
+  if (!gameWon && !gameLost && !isMovementPressed()) {
     worldAnger -= 0.015;
     clampWorldAnger();
+  }
+
+  if (!gameWon && !gameLost) {
+    if (worldAnger >= maxWorldAnger) {
+      maxAngerTimer += 1;
+    } else {
+      maxAngerTimer = 0;
+    }
+
+    if (!finalMadnessUnlocked && maxAngerTimer >= maxAngerThresholdFrames) {
+      finalMadnessUnlocked = true;
+      finalMadnessActive = true;
+      showWorldMessage("Reality has given up", 220);
+      triggerScreenShake(14, 120);
+      triggerDrift(320);
+      activeEffects.debugCorruptionTimer = Math.max(activeEffects.debugCorruptionTimer, 560);
+      activeEffects.liarHotbarTimer = Math.max(activeEffects.liarHotbarTimer, 620);
+    }
   }
 
   if (messageTimer > 0) {
@@ -1458,4 +1749,5 @@ updateUI();
 scanParasitePressure();
 updateChaosUI();
 updateCollapseUI();
+showIntroOverlay();
 loop();
