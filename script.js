@@ -147,6 +147,7 @@ let finalMadnessActive = false;
 let introTimerMs = 0;
 const introDurationMs = 5000;
 let introVisible = false;
+
 let tutorialTimerMs = 0;
 const tutorialDurationMs = 5000;
 let lastLoopTime = performance.now();
