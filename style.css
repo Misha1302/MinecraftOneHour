@@ -63,14 +63,14 @@ canvas {
 }
 
 .hotbar-slot {
-  width: 48px;
+  width: 72px;
   height: 48px;
   border: 3px solid rgba(255, 255, 255, 0.55);
   background: rgba(20, 32, 42, 0.42);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 700;
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18);
 }

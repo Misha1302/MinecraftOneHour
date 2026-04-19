@@ -65,8 +65,27 @@ const BLOCK_COLORS = {
 
 let world = [];
 const player = { x: 8, y: 6, z: 8, speed: 0.08 };
+const keys = {};
+const hotbarBlocks = [BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_WOOD, BLOCK_LEAVES, BLOCK_SAND];
+const coordsEl = document.getElementById("coords");
+const hotbarEl = document.getElementById("hotbar");
+const selectedBlockEl = document.getElementById("selectedBlock");
 let selectedBlockIndex = 0;
 let hoveredBlock = null;
+
+window.addEventListener("keydown", (e) => {
+  keys[e.key.toLowerCase()] = true;
+
+  const n = Number(e.key);
+  if (n >= 1 && n <= hotbarBlocks.length) {
+    selectedBlockIndex = n - 1;
+    updateHotbar();
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  keys[e.key.toLowerCase()] = false;
+});
 
 function createEmptyWorld() {
   world = [];
@@ -177,6 +196,84 @@ function worldToScreen(x, y, z) {
   };
 }
 
+function updatePlayer() {
+  if (keys["w"]) {
+    player.z -= player.speed;
+  }
+  if (keys["s"]) {
+    player.z += player.speed;
+  }
+  if (keys["a"]) {
+    player.x -= player.speed;
+  }
+  if (keys["d"]) {
+    player.x += player.speed;
+  }
+  if (keys["q"]) {
+    player.y += player.speed;
+  }
+  if (keys["e"]) {
+    player.y -= player.speed;
+  }
+
+  player.x = Math.max(0, Math.min(WORLD_W - 1, player.x));
+  player.z = Math.max(0, Math.min(WORLD_D - 1, player.z));
+  player.y = Math.max(0, Math.min(WORLD_H + 2, player.y));
+}
+
+function updateUI() {
+  coordsEl.textContent = `X: ${player.x.toFixed(1)} Y: ${player.y.toFixed(1)} Z: ${player.z.toFixed(1)}`;
+}
+
+function updateHotbar() {
+  hotbarEl.innerHTML = "";
+
+  hotbarBlocks.forEach((blockId, index) => {
+    const slot = document.createElement("div");
+    slot.className = "hotbar-slot";
+
+    if (index === selectedBlockIndex) {
+      slot.classList.add("active");
+    }
+
+    slot.textContent = BLOCK_NAMES[blockId];
+    hotbarEl.appendChild(slot);
+  });
+
+  selectedBlockEl.textContent = `Block: ${BLOCK_NAMES[hotbarBlocks[selectedBlockIndex]]}`;
+}
+
+function updateHoveredBlock() {
+  let best = null;
+  let bestDist = Infinity;
+
+  for (let x = 0; x < WORLD_W; x += 1) {
+    for (let y = 0; y < WORLD_H; y += 1) {
+      for (let z = 0; z < WORLD_D; z += 1) {
+        if (getBlock(x, y, z) === BLOCK_AIR) {
+          continue;
+        }
+
+        if (getBlock(x, y + 1, z) !== BLOCK_AIR) {
+          continue;
+        }
+
+        const p = worldToScreen(x, y, z);
+        const dx = p.x - canvas.width / 2;
+        const dy = p.y - BLOCK_H + TILE_H / 2 - canvas.height / 2;
+        const dist = dx * dx + dy * dy;
+
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = { x, y, z };
+        }
+      }
+    }
+  }
+
+  hoveredBlock = bestDist <= 120 * 120 ? best : null;
+}
+
 function drawFace(points, color) {
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
@@ -224,6 +321,30 @@ function drawBlock(x, y, z, blockId) {
   drawFace(top, colors.top);
 }
 
+function drawHoveredOutline() {
+  if (hoveredBlock === null) {
+    return;
+  }
+
+  const p = worldToScreen(hoveredBlock.x, hoveredBlock.y, hoveredBlock.z);
+  const top = [
+    { x: p.x, y: p.y - BLOCK_H },
+    { x: p.x + TILE_W / 2, y: p.y - BLOCK_H + TILE_H / 2 },
+    { x: p.x, y: p.y - BLOCK_H + TILE_H },
+    { x: p.x - TILE_W / 2, y: p.y - BLOCK_H + TILE_H / 2 }
+  ];
+
+  ctx.beginPath();
+  ctx.moveTo(top[0].x, top[0].y);
+  ctx.lineTo(top[1].x, top[1].y);
+  ctx.lineTo(top[2].x, top[2].y);
+  ctx.lineTo(top[3].x, top[3].y);
+  ctx.closePath();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
 function renderWorld() {
   const blocks = [];
 
@@ -257,10 +378,38 @@ function render() {
   ctx.fillStyle = "#79c7ff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   renderWorld();
+  drawHoveredOutline();
 }
 
 function update() {
+  updatePlayer();
+  updateHoveredBlock();
+  updateUI();
 }
+
+canvas.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+});
+
+canvas.addEventListener("mousedown", (e) => {
+  if (hoveredBlock === null) {
+    return;
+  }
+
+  if (e.button === 0) {
+    setBlock(hoveredBlock.x, hoveredBlock.y, hoveredBlock.z, BLOCK_AIR);
+  }
+
+  if (e.button === 2) {
+    const px = hoveredBlock.x;
+    const py = hoveredBlock.y + 1;
+    const pz = hoveredBlock.z;
+
+    if (inBounds(px, py, pz) && getBlock(px, py, pz) === BLOCK_AIR) {
+      setBlock(px, py, pz, hotbarBlocks[selectedBlockIndex]);
+    }
+  }
+});
 
 function loop() {
   update();
@@ -269,6 +418,6 @@ function loop() {
 }
 
 generateWorld();
-document.getElementById("coords").textContent = "Coords: x 8, y 6, z 8";
-document.getElementById("selectedBlock").textContent = `Selected: ${BLOCK_NAMES[BLOCK_GRASS]}`;
+updateUI();
+updateHotbar();
 loop();
