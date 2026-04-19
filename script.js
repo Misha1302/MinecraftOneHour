@@ -144,11 +144,13 @@ let maxAngerTimer = 0;
 const maxAngerThresholdFrames = 3600;
 let finalMadnessUnlocked = false;
 let finalMadnessActive = false;
-let introTimer = 0;
-const introDurationFrames = 300;
+let introTimerMs = 0;
+const introDurationMs = 5000;
 let introVisible = false;
-let tutorialTimer = 0;
-const tutorialDurationFrames = 300;
+
+let tutorialTimerMs = 0;
+const tutorialDurationMs = 5000;
+let lastLoopTime = performance.now();
 const nukeState = {
   active: false,
   phase: "idle",
@@ -222,7 +224,7 @@ window.addEventListener("keydown", (e) => {
     hideIntroOverlay();
   }
 
-  if ((e.key === " " || e.key === "Enter") && tutorialTimer > 0) {
+  if ((e.key === " " || e.key === "Enter") && tutorialTimerMs > 0) {
     hideTutorialOverlay();
   }
 
@@ -658,7 +660,7 @@ function resetChaosState() {
   finalMadnessActive = false;
   messageText = "";
   messageTimer = 0;
-  introTimer = 0;
+  introTimerMs = 0;
   introVisible = false;
   nukeState.active = false;
   nukeState.phase = "idle";
@@ -827,49 +829,49 @@ function showWorldPhrase() {
 }
 
 function showIntroOverlay() {
-  introTimer = introDurationFrames;
+  introTimerMs = introDurationMs;
   introVisible = true;
   introOverlayEl.classList.add("visible");
 }
 
 function hideIntroOverlay() {
-  introTimer = 0;
+  introTimerMs = 0;
   introVisible = false;
   introOverlayEl.classList.remove("visible");
 }
 
-function updateIntroOverlay() {
+function updateIntroOverlay(deltaMs) {
   if (!introVisible) {
     return;
   }
 
-  introTimer = Math.max(0, introTimer - 1);
+  introTimerMs = Math.max(0, introTimerMs - deltaMs);
 
-  if (introTimer === 0) {
+  if (introTimerMs === 0) {
     hideIntroOverlay();
   }
 }
 
 function showTutorialOverlay() {
-  tutorialTimer = tutorialDurationFrames;
+  tutorialTimerMs = tutorialDurationMs;
   tutorialOverlayEl.classList.add("visible");
   tutorialOverlayEl.setAttribute("aria-hidden", "false");
 }
 
 function hideTutorialOverlay() {
-  tutorialTimer = 0;
+  tutorialTimerMs = 0;
   tutorialOverlayEl.classList.remove("visible");
   tutorialOverlayEl.setAttribute("aria-hidden", "true");
 }
 
-function updateTutorialOverlay() {
-  if (tutorialTimer <= 0) {
+function updateTutorialOverlay(deltaMs) {
+  if (tutorialTimerMs <= 0) {
     return;
   }
 
-  tutorialTimer = Math.max(0, tutorialTimer - 1);
+  tutorialTimerMs = Math.max(0, tutorialTimerMs - deltaMs);
 
-  if (tutorialTimer === 0) {
+  if (tutorialTimerMs === 0) {
     hideTutorialOverlay();
   }
 }
@@ -1676,9 +1678,9 @@ function render() {
   drawHoveredOutline();
 }
 
-function update() {
-  updateIntroOverlay();
-  updateTutorialOverlay();
+function update(deltaMs) {
+  updateIntroOverlay(deltaMs);
+  updateTutorialOverlay(deltaMs);
 
   if (!gameWon && !gameLost) {
     gameTimer += 1;
@@ -1761,6 +1763,8 @@ canvas.addEventListener("mousedown", (e) => {
 function loop() {
   frameCount += 1;
   const now = performance.now();
+  const deltaMs = Math.min(100, now - lastLoopTime);
+  lastLoopTime = now;
 
   if (now - fpsLastTime >= 1000) {
     fps = frameCount;
@@ -1768,7 +1772,7 @@ function loop() {
     fpsLastTime = now;
   }
 
-  update();
+  update(deltaMs);
   render();
   requestAnimationFrame(loop);
 }
