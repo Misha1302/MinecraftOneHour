@@ -12,6 +12,7 @@ resizeCanvas();
 const WORLD_W = 16;
 const WORLD_H = 8;
 const WORLD_D = 16;
+const WORLD_STORAGE_KEY = "minicraft_world";
 
 const BLOCK_AIR = 0;
 const BLOCK_GRASS = 1;
@@ -75,6 +76,12 @@ let hoveredBlock = null;
 
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
+
+  if (e.key.toLowerCase() === "r") {
+    generateWorld();
+    saveWorld();
+    updateHoveredBlock();
+  }
 
   const n = Number(e.key);
   if (n >= 1 && n <= hotbarBlocks.length) {
@@ -178,6 +185,25 @@ function generateWorld() {
 
   placeTree(4, 4);
   placeTree(10, 11);
+}
+
+function saveWorld() {
+  localStorage.setItem(WORLD_STORAGE_KEY, JSON.stringify(world));
+}
+
+function loadWorld() {
+  const storedWorld = localStorage.getItem(WORLD_STORAGE_KEY);
+
+  if (storedWorld === null) {
+    return false;
+  }
+
+  try {
+    world = JSON.parse(storedWorld);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const TILE_W = 48;
@@ -340,9 +366,10 @@ function drawHoveredOutline() {
   ctx.lineTo(top[2].x, top[2].y);
   ctx.lineTo(top[3].x, top[3].y);
   ctx.closePath();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#fff7a8";
+  ctx.lineWidth = 3;
   ctx.stroke();
+  ctx.lineWidth = 1;
 }
 
 function renderWorld() {
@@ -375,7 +402,10 @@ function renderWorld() {
 
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#79c7ff";
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, "#9bddff");
+  gradient.addColorStop(1, "#62b8f2");
+  ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   renderWorld();
   drawHoveredOutline();
@@ -398,6 +428,7 @@ canvas.addEventListener("mousedown", (e) => {
 
   if (e.button === 0) {
     setBlock(hoveredBlock.x, hoveredBlock.y, hoveredBlock.z, BLOCK_AIR);
+    saveWorld();
   }
 
   if (e.button === 2) {
@@ -407,6 +438,7 @@ canvas.addEventListener("mousedown", (e) => {
 
     if (inBounds(px, py, pz) && getBlock(px, py, pz) === BLOCK_AIR) {
       setBlock(px, py, pz, hotbarBlocks[selectedBlockIndex]);
+      saveWorld();
     }
   }
 });
@@ -417,7 +449,11 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-generateWorld();
-updateUI();
+if (!loadWorld()) {
+  generateWorld();
+  saveWorld();
+}
+
 updateHotbar();
+updateUI();
 loop();
