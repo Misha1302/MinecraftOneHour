@@ -11,6 +11,28 @@ body {
   color: white;
 }
 
+body.chaos-tilt canvas {
+  transform: rotate(-1.5deg) scale(1.03);
+}
+
+body.chaos-invert canvas {
+  filter: invert(1) hue-rotate(150deg);
+}
+
+body.chaos-wave canvas {
+  animation: chaosWave 900ms ease-in-out infinite alternate;
+}
+
+@keyframes chaosWave {
+  from {
+    filter: saturate(1.05);
+  }
+
+  to {
+    filter: saturate(1.7) contrast(1.18);
+  }
+}
+
 canvas {
   display: block;
   width: 100vw;
@@ -27,10 +49,11 @@ canvas {
   position: absolute;
   top: 16px;
   left: 20px;
-  font-size: 30px;
+  font-size: 42px;
   font-weight: 700;
-  letter-spacing: 0.3px;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55), 0 0 16px rgba(0, 0, 0, 0.45);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-shadow: 0 5px 0 rgba(0, 0, 0, 0.65), 0 0 22px rgba(255, 247, 168, 0.32);
 }
 
 #crosshair {
@@ -45,12 +68,77 @@ canvas {
 
 #info {
   position: absolute;
-  top: 58px;
+  top: 74px;
   left: 20px;
   display: grid;
-  gap: 6px;
-  font-size: 15px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+  gap: 8px;
+  padding: 12px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.34);
+  border-radius: 10px;
+  background: rgba(5, 12, 18, 0.48);
+  font-size: 22px;
+  font-weight: 700;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.72);
+}
+
+#chaosPanel {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: min(520px, calc(100vw - 40px));
+  padding: 14px 16px 16px;
+  border: 3px solid rgba(255, 230, 126, 0.95);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(12, 12, 18, 0.88), rgba(72, 18, 16, 0.74));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), inset 0 0 28px rgba(255, 80, 30, 0.14);
+}
+
+.panel-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 10px;
+  color: #fff2a5;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.75);
+}
+
+#chaosBar {
+  height: 28px;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.65);
+}
+
+#chaosFill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #81ff6f, #fff36f 45%, #ff6a25 72%, #ff244d);
+  box-shadow: 0 0 20px rgba(255, 74, 36, 0.8);
+  transition: width 160ms ease-out;
+}
+
+#objectivePanel {
+  position: absolute;
+  top: 104px;
+  right: 20px;
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 12px 18px;
+  border: 2px solid rgba(146, 255, 233, 0.9);
+  border-radius: 12px;
+  background: rgba(7, 28, 34, 0.74);
+  color: #b5fff1;
+  font-size: 24px;
+  font-weight: 900;
+  text-transform: uppercase;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.78);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 #hotbar {
@@ -63,16 +151,18 @@ canvas {
 }
 
 .hotbar-slot {
-  width: 72px;
-  height: 48px;
+  width: 86px;
+  height: 58px;
   border: 3px solid rgba(255, 255, 255, 0.55);
   background: rgba(20, 32, 42, 0.42);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18);
+  text-transform: uppercase;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.72);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.26), inset 0 0 0 2px rgba(0, 0, 0, 0.18);
 }
 
 .hotbar-slot.active {
@@ -85,25 +175,57 @@ canvas {
   position: absolute;
   bottom: 24px;
   left: 20px;
-  max-width: 320px;
-  font-size: 14px;
+  max-width: 390px;
+  padding: 14px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(8, 12, 18, 0.48);
+  font-size: 20px;
   line-height: 1.35;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+  font-weight: 700;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.75);
+}
+
+#worldMessage {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  width: min(920px, calc(100vw - 48px));
+  transform: translate(-50%, -30%) scale(0.96);
+  padding: 22px 30px;
+  border: 4px solid rgba(255, 247, 168, 0.96);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(10, 7, 12, 0.9), rgba(108, 28, 18, 0.84));
+  color: #fff7a8;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.72), 0 0 20px rgba(255, 94, 42, 0.5);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42), inset 0 0 36px rgba(255, 95, 43, 0.2);
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+#worldMessage.visible {
+  opacity: 1;
+  transform: translate(-50%, -30%) scale(1);
 }
 
 #memeMessage {
   position: absolute;
   left: 50%;
-  bottom: 92px;
+  bottom: 112px;
   transform: translateX(-50%);
-  padding: 10px 16px;
+  padding: 14px 20px;
   border: 2px solid rgba(255, 247, 168, 0.95);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(8, 12, 18, 0.72);
   color: #fff7a8;
-  font-size: 14px;
+  font-size: 22px;
   font-weight: 700;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 3px 7px rgba(0, 0, 0, 0.75);
   opacity: 0;
   transition: opacity 180ms ease;
 }
@@ -114,7 +236,7 @@ canvas {
 
 #debugOverlay {
   position: absolute;
-  top: 16px;
+  top: 166px;
   right: 20px;
   min-width: 250px;
   padding: 10px 12px;
@@ -122,7 +244,7 @@ canvas {
   border-radius: 6px;
   background: rgba(8, 20, 24, 0.75);
   color: #9fffee;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.4;
   white-space: pre-line;
   opacity: 0;

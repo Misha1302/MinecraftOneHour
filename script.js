@@ -9,10 +9,11 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-const WORLD_W = 16;
-const WORLD_H = 8;
-const WORLD_D = 16;
+const WORLD_W = 28;
+const WORLD_H = 12;
+const WORLD_D = 28;
 const WORLD_STORAGE_KEY = "minicraft_world";
+const SAVE_VERSION = 2;
 
 const BLOCK_AIR = 0;
 const BLOCK_GRASS = 1;
@@ -65,7 +66,7 @@ const BLOCK_COLORS = {
 };
 
 let world = [];
-const player = { x: 8, y: 6, z: 8, speed: 0.08 };
+const player = { x: WORLD_W / 2, y: WORLD_H - 2, z: WORLD_D / 2, speed: 0.08 };
 const keys = {};
 const hotbarBlocks = [BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_WOOD, BLOCK_LEAVES, BLOCK_SAND];
 const coordsEl = document.getElementById("coords");
@@ -73,6 +74,10 @@ const hotbarEl = document.getElementById("hotbar");
 const selectedBlockEl = document.getElementById("selectedBlock");
 const memeMessageEl = document.getElementById("memeMessage");
 const debugOverlayEl = document.getElementById("debugOverlay");
+const chaosFillEl = document.getElementById("chaosFill");
+const chaosValueEl = document.getElementById("chaosValue");
+const objectivePanelEl = document.getElementById("objectivePanel");
+const worldMessageEl = document.getElementById("worldMessage");
 let selectedBlockIndex = 0;
 let hoveredBlock = null;
 let memeMessageTimer = null;
@@ -80,6 +85,15 @@ let debugOverlayEnabled = false;
 let frameCount = 0;
 let fps = 0;
 let fpsLastTime = performance.now();
+let worldAnger = 0;
+const maxWorldAnger = 100;
+let worldPhase = 0;
+let collectedCores = 0;
+const totalCores = 3;
+const activeEffects = {};
+let messageText = "";
+let messageTimer = 0;
+let objectiveText = "Find anomaly cores";
 const worldPhrases = [
   "The grass whispers: press F again.",
   "Stone says you are definitely speedrunning.",
@@ -190,9 +204,16 @@ function generateWorld() {
 
   for (let x = 0; x < WORLD_W; x += 1) {
     for (let z = 0; z < WORLD_D; z += 1) {
-      const waveHeight = Math.floor(2 + Math.sin(x * 0.5) * 1.2 + Math.cos(z * 0.45) * 1.2) + 2;
+      const waveHeight = Math.floor(
+        4
+        + Math.sin(x * 0.38) * 2.1
+        + Math.cos(z * 0.32) * 1.8
+        + Math.sin((x + z) * 0.18) * 1.1
+      );
       const height = Math.max(1, Math.min(WORLD_H - 2, waveHeight));
-      const topBlock = z < 3 || x > WORLD_W - 4 ? BLOCK_SAND : BLOCK_GRASS;
+      const isBeach = z < 4 || x > WORLD_W - 5;
+      const isAnomalyPatch = (x * 17 + z * 31) % 97 === 0;
+      const topBlock = isBeach ? BLOCK_SAND : isAnomalyPatch ? BLOCK_STONE : BLOCK_GRASS;
 
       for (let y = 0; y <= height; y += 1) {
         if (y === height) {
@@ -206,12 +227,30 @@ function generateWorld() {
     }
   }
 
-  placeTree(4, 4);
-  placeTree(10, 11);
+  const treePositions = [
+    [4, 5],
+    [7, 18],
+    [12, 9],
+    [15, 22],
+    [20, 6],
+    [23, 16],
+    [10, 25],
+    [25, 24]
+  ];
+
+  for (const [x, z] of treePositions) {
+    placeTree(x, z);
+  }
 }
 
 function saveWorld() {
-  localStorage.setItem(WORLD_STORAGE_KEY, JSON.stringify(world));
+  localStorage.setItem(WORLD_STORAGE_KEY, JSON.stringify({
+    version: SAVE_VERSION,
+    width: WORLD_W,
+    height: WORLD_H,
+    depth: WORLD_D,
+    blocks: world
+  }));
 }
 
 function loadWorld() {
@@ -222,7 +261,23 @@ function loadWorld() {
   }
 
   try {
-    world = JSON.parse(storedWorld);
+    const save = JSON.parse(storedWorld);
+
+    if (Array.isArray(save)) {
+      return false;
+    }
+
+    if (
+      save.version !== SAVE_VERSION
+      || save.width !== WORLD_W
+      || save.height !== WORLD_H
+      || save.depth !== WORLD_D
+      || !Array.isArray(save.blocks)
+    ) {
+      return false;
+    }
+
+    world = save.blocks;
     return true;
   } catch {
     return false;
@@ -274,6 +329,75 @@ function updateUI() {
   coordsEl.textContent = `X: ${player.x.toFixed(1)} Y: ${player.y.toFixed(1)} Z: ${player.z.toFixed(1)}`;
 }
 
+function clampWorldAnger() {
+  worldAnger = Math.max(0, Math.min(maxWorldAnger, worldAnger));
+}
+
+function showWorldMessage(text, duration = 180) {
+  messageText = text;
+  messageTimer = duration;
+  updateChaosUI();
+}
+
+function getPhaseForAnger() {
+  if (worldAnger >= 75) {
+    return 3;
+  }
+
+  if (worldAnger >= 45) {
+    return 2;
+  }
+
+  if (worldAnger >= 20) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function updateWorldPhase() {
+  const nextPhase = getPhaseForAnger();
+
+  if (nextPhase === worldPhase) {
+    return;
+  }
+
+  const previousPhase = worldPhase;
+  worldPhase = nextPhase;
+
+  const phaseMessages = [
+    "",
+    "The world noticed you",
+    "Geometry is irritated",
+    "The world is no longer pretending"
+  ];
+
+  if (worldPhase > previousPhase && phaseMessages[worldPhase]) {
+    showWorldMessage(phaseMessages[worldPhase], 210);
+  }
+}
+
+function addWorldAnger(amount) {
+  worldAnger += amount;
+  clampWorldAnger();
+  updateWorldPhase();
+  updateChaosUI();
+}
+
+function updateChaosUI() {
+  const percent = Math.round((worldAnger / maxWorldAnger) * 100);
+  chaosFillEl.style.width = `${percent}%`;
+  chaosValueEl.textContent = `${percent}%`;
+  objectivePanelEl.textContent = `${objectiveText}: ${collectedCores}/${totalCores}`;
+
+  if (messageTimer > 0 && messageText !== "") {
+    worldMessageEl.textContent = messageText;
+    worldMessageEl.classList.add("visible");
+  } else {
+    worldMessageEl.classList.remove("visible");
+  }
+}
+
 function updateHotbar() {
   hotbarEl.innerHTML = "";
 
@@ -317,6 +441,8 @@ function updateDebugOverlay() {
   debugOverlayEl.textContent = [
     "=== FAKE ENGINE TELEMETRY ===",
     `FPS: ${fps}`,
+    `World anger: ${worldAnger.toFixed(1)}/${maxWorldAnger}`,
+    `Chaos phase: ${worldPhase}`,
     `Chunk mood: ${Math.round((player.x + player.z) * 3) % 7}/6`,
     `Isometric entropy: ${(Math.sin(player.x) * Math.cos(player.z) * 100).toFixed(2)}%`,
     `Hovered block: ${hoveredBlock ? `${hoveredBlock.x},${hoveredBlock.y},${hoveredBlock.z}` : "none"}`,
@@ -468,8 +594,19 @@ function render() {
 
 function update() {
   updatePlayer();
+  if (!keys["w"] && !keys["a"] && !keys["s"] && !keys["d"] && !keys["q"] && !keys["e"]) {
+    worldAnger -= 0.015;
+    clampWorldAnger();
+  }
+
+  if (messageTimer > 0) {
+    messageTimer -= 1;
+  }
+
+  updateWorldPhase();
   updateHoveredBlock();
   updateUI();
+  updateChaosUI();
   updateDebugOverlay();
 }
 
@@ -483,7 +620,9 @@ canvas.addEventListener("mousedown", (e) => {
   }
 
   if (e.button === 0) {
+    const brokenBlock = getBlock(hoveredBlock.x, hoveredBlock.y, hoveredBlock.z);
     setBlock(hoveredBlock.x, hoveredBlock.y, hoveredBlock.z, BLOCK_AIR);
+    addWorldAnger(brokenBlock === BLOCK_WOOD || brokenBlock === BLOCK_LEAVES ? 2 : 1);
     saveWorld();
   }
 
@@ -494,6 +633,7 @@ canvas.addEventListener("mousedown", (e) => {
 
     if (inBounds(px, py, pz) && getBlock(px, py, pz) === BLOCK_AIR) {
       setBlock(px, py, pz, hotbarBlocks[selectedBlockIndex]);
+      addWorldAnger(0.5);
       saveWorld();
     }
   }
@@ -521,4 +661,5 @@ if (!loadWorld()) {
 
 updateHotbar();
 updateUI();
+updateChaosUI();
 loop();

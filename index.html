@@ -16,6 +16,13 @@
       <div id="coords"></div>
       <div id="selectedBlock"></div>
     </div>
+    <div id="chaosPanel">
+      <div class="panel-label">World Anger <span id="chaosValue">0%</span></div>
+      <div id="chaosBar" aria-hidden="true">
+        <div id="chaosFill"></div>
+      </div>
+    </div>
+    <div id="objectivePanel" aria-live="polite">Find anomaly cores: 0/3</div>
     <div id="hotbar">
       <div class="hotbar-slot active">1</div>
       <div class="hotbar-slot">2</div>
@@ -25,6 +32,7 @@
       <div class="hotbar-slot">6</div>
     </div>
     <div id="help">WASD &mdash; move<br>Q/E &mdash; up/down<br>LMB &mdash; break<br>RMB &mdash; place<br>1-6 &mdash; select block<br>F &mdash; world phrase<br>` &mdash; fake debug<br>R &mdash; reset world</div>
+    <div id="worldMessage" aria-live="assertive"></div>
     <div id="memeMessage" aria-live="polite"></div>
     <div id="debugOverlay"></div>
   </div>
