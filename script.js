@@ -71,8 +71,22 @@ const hotbarBlocks = [BLOCK_GRASS, BLOCK_DIRT, BLOCK_STONE, BLOCK_WOOD, BLOCK_LE
 const coordsEl = document.getElementById("coords");
 const hotbarEl = document.getElementById("hotbar");
 const selectedBlockEl = document.getElementById("selectedBlock");
+const memeMessageEl = document.getElementById("memeMessage");
+const debugOverlayEl = document.getElementById("debugOverlay");
 let selectedBlockIndex = 0;
 let hoveredBlock = null;
+let memeMessageTimer = null;
+let debugOverlayEnabled = false;
+let frameCount = 0;
+let fps = 0;
+let fpsLastTime = performance.now();
+const worldPhrases = [
+  "The grass whispers: press F again.",
+  "Stone says you are definitely speedrunning.",
+  "Tree AI requests more sunlight and snacks.",
+  "Sandbox core online. Absolutely stable. Probably.",
+  "Local chicken not found. Proceeding anyway."
+];
 
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
@@ -81,6 +95,15 @@ window.addEventListener("keydown", (e) => {
     generateWorld();
     saveWorld();
     updateHoveredBlock();
+  }
+
+  if (e.key.toLowerCase() === "f") {
+    showWorldPhrase();
+  }
+
+  if (e.key === "`") {
+    debugOverlayEnabled = !debugOverlayEnabled;
+    updateDebugOverlay();
   }
 
   const n = Number(e.key);
@@ -269,6 +292,38 @@ function updateHotbar() {
   selectedBlockEl.textContent = `Block: ${BLOCK_NAMES[hotbarBlocks[selectedBlockIndex]]}`;
 }
 
+function showWorldPhrase() {
+  const index = Math.floor(Math.random() * worldPhrases.length);
+  memeMessageEl.textContent = worldPhrases[index];
+  memeMessageEl.classList.add("visible");
+
+  if (memeMessageTimer !== null) {
+    clearTimeout(memeMessageTimer);
+  }
+
+  memeMessageTimer = setTimeout(() => {
+    memeMessageEl.classList.remove("visible");
+    memeMessageTimer = null;
+  }, 2400);
+}
+
+function updateDebugOverlay() {
+  if (!debugOverlayEnabled) {
+    debugOverlayEl.classList.remove("visible");
+    return;
+  }
+
+  debugOverlayEl.classList.add("visible");
+  debugOverlayEl.textContent = [
+    "=== FAKE ENGINE TELEMETRY ===",
+    `FPS: ${fps}`,
+    `Chunk mood: ${Math.round((player.x + player.z) * 3) % 7}/6`,
+    `Isometric entropy: ${(Math.sin(player.x) * Math.cos(player.z) * 100).toFixed(2)}%`,
+    `Hovered block: ${hoveredBlock ? `${hoveredBlock.x},${hoveredBlock.y},${hoveredBlock.z}` : "none"}`,
+    "Nanobots in leaves: calibrated"
+  ].join("\n");
+}
+
 function updateHoveredBlock() {
   let best = null;
   let bestDist = Infinity;
@@ -415,6 +470,7 @@ function update() {
   updatePlayer();
   updateHoveredBlock();
   updateUI();
+  updateDebugOverlay();
 }
 
 canvas.addEventListener("contextmenu", (e) => {
@@ -444,6 +500,15 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 function loop() {
+  frameCount += 1;
+  const now = performance.now();
+
+  if (now - fpsLastTime >= 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    fpsLastTime = now;
+  }
+
   update();
   render();
   requestAnimationFrame(loop);
