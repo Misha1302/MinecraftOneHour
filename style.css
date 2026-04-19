@@ -11,12 +11,31 @@ body {
   color: white;
 }
 
-body.chaos-tilt canvas {
-  transform: rotate(-1.5deg) scale(1.03);
+#gameRoot {
+  --chaos-x: 0px;
+  --chaos-y: 0px;
+  --chaos-tilt-rot: 0deg;
+  --chaos-scale: 1;
+  position: fixed;
+  inset: 0;
+  transform: translate(var(--chaos-x), var(--chaos-y)) rotate(var(--chaos-tilt-rot)) scale(var(--chaos-scale));
+  transform-origin: center center;
+  transition: filter 80ms linear;
+  will-change: transform, filter;
 }
 
-body.chaos-invert canvas {
-  filter: invert(1) hue-rotate(150deg);
+body.chaos-tilt #gameRoot {
+  --chaos-tilt-rot: -3deg;
+  --chaos-scale: 1.03;
+}
+
+body.chaos-upside-down #gameRoot {
+  --chaos-scale: 1.04;
+  transform: translate(var(--chaos-x), var(--chaos-y)) rotate(calc(var(--chaos-tilt-rot) + 180deg)) scale(var(--chaos-scale));
+}
+
+body.chaos-invert #gameRoot {
+  filter: invert(1) hue-rotate(150deg) contrast(1.15);
 }
 
 body.chaos-wave canvas {
@@ -25,7 +44,7 @@ body.chaos-wave canvas {
 
 @keyframes chaosWave {
   from {
-    filter: saturate(1.05);
+    filter: saturate(1.05) contrast(1);
   }
 
   to {
@@ -249,6 +268,15 @@ canvas {
   white-space: pre-line;
   opacity: 0;
   transition: opacity 120ms linear;
+}
+
+body.chaos-debug #debugOverlay {
+  min-width: 340px;
+  border-color: rgba(255, 61, 97, 0.96);
+  background: rgba(30, 4, 12, 0.88);
+  color: #fff09b;
+  font-size: 18px;
+  box-shadow: 0 0 28px rgba(255, 61, 97, 0.45);
 }
 
 #debugOverlay.visible {
