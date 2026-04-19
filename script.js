@@ -148,7 +148,7 @@ let introTimer = 0;
 const introDurationFrames = 300;
 let introVisible = false;
 let tutorialTimer = 0;
-const tutorialDurationFrames = 1200;
+const tutorialDurationFrames = 300;
 const nukeState = {
   active: false,
   phase: "idle",
