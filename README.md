@@ -11,6 +11,8 @@ It renders an isometric block world without third-party libraries.
 - Hotbar
 - World persistence in localStorage
 - Reset by key R
+- Meme world phrases on key F
+- Fake debug overlay on key `
 
 ## Controls
 
@@ -19,6 +21,8 @@ It renders an isometric block world without third-party libraries.
 - LMB: break
 - RMB: place
 - 1-6: select block
+- F: show random world phrase
+- `: toggle fake debug overlay
 - R: reset world
 
 ## How to run
