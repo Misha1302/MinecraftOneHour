@@ -114,6 +114,7 @@ const endScreenEl = document.getElementById("endScreen");
 const endTitleEl = document.getElementById("endTitle");
 const endSubtitleEl = document.getElementById("endSubtitle");
 const introOverlayEl = document.getElementById("introOverlay");
+const tutorialOverlayEl = document.getElementById("tutorialOverlay");
 let selectedBlockIndex = 0;
 let hoveredBlock = null;
 let memeMessageTimer = null;
@@ -146,6 +147,8 @@ let finalMadnessActive = false;
 let introTimer = 0;
 const introDurationFrames = 300;
 let introVisible = false;
+let tutorialTimer = 0;
+const tutorialDurationFrames = 1200;
 const nukeState = {
   active: false,
   phase: "idle",
@@ -217,6 +220,10 @@ window.addEventListener("keydown", (e) => {
 
   if ((e.key === " " || e.key === "Enter") && introVisible) {
     hideIntroOverlay();
+  }
+
+  if ((e.key === " " || e.key === "Enter") && tutorialTimer > 0) {
+    hideTutorialOverlay();
   }
 
   if (lowered === "b") {
@@ -690,6 +697,7 @@ function resetChaosState() {
   updateChaosUI();
   updateCollapseUI();
   hideIntroOverlay();
+  hideTutorialOverlay();
 }
 
 function restartGame() {
@@ -700,6 +708,7 @@ function restartGame() {
   updateHoveredBlock();
   showWorldMessage("New run. Find anomaly cores.", 140);
   showIntroOverlay();
+  showTutorialOverlay();
 }
 
 function triggerScreenShake(power, duration) {
@@ -838,6 +847,30 @@ function updateIntroOverlay() {
 
   if (introTimer === 0) {
     hideIntroOverlay();
+  }
+}
+
+function showTutorialOverlay() {
+  tutorialTimer = tutorialDurationFrames;
+  tutorialOverlayEl.classList.add("visible");
+  tutorialOverlayEl.setAttribute("aria-hidden", "false");
+}
+
+function hideTutorialOverlay() {
+  tutorialTimer = 0;
+  tutorialOverlayEl.classList.remove("visible");
+  tutorialOverlayEl.setAttribute("aria-hidden", "true");
+}
+
+function updateTutorialOverlay() {
+  if (tutorialTimer <= 0) {
+    return;
+  }
+
+  tutorialTimer = Math.max(0, tutorialTimer - 1);
+
+  if (tutorialTimer === 0) {
+    hideTutorialOverlay();
   }
 }
 
@@ -1645,6 +1678,7 @@ function render() {
 
 function update() {
   updateIntroOverlay();
+  updateTutorialOverlay();
 
   if (!gameWon && !gameLost) {
     gameTimer += 1;
@@ -1750,4 +1784,5 @@ scanParasitePressure();
 updateChaosUI();
 updateCollapseUI();
 showIntroOverlay();
+showTutorialOverlay();
 loop();

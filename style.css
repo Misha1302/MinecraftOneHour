@@ -352,6 +352,74 @@ body.chaos-debug #debugOverlay {
   pointer-events: auto;
 }
 
+#tutorialOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at center, rgba(96, 18, 12, 0.38), rgba(4, 6, 10, 0.9));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+#tutorialOverlay.visible {
+  opacity: 1;
+}
+
+#tutorialCard {
+  width: min(860px, calc(100vw - 44px));
+  display: grid;
+  gap: 10px;
+  padding: clamp(18px, 2.6vw, 30px);
+  border: 3px solid rgba(255, 230, 126, 0.95);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(8, 8, 12, 0.94), rgba(56, 16, 14, 0.88));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52), inset 0 0 30px rgba(255, 105, 56, 0.18);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+#tutorialTitle {
+  font-size: clamp(34px, 5vw, 68px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #fff2a5;
+  text-shadow: 0 5px 0 rgba(0, 0, 0, 0.74), 0 0 20px rgba(255, 184, 75, 0.38);
+}
+
+.tutorialLine {
+  font-size: clamp(16px, 2vw, 28px);
+  font-weight: 800;
+  color: #ecf6ff;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.75);
+}
+
+#tutorialObjective {
+  margin-top: 6px;
+  font-size: clamp(20px, 2.4vw, 34px);
+  font-weight: 900;
+  color: #b9fff3;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+}
+
+#tutorialWarning {
+  font-size: clamp(16px, 2vw, 28px);
+  font-weight: 900;
+  color: #ff9696;
+  text-shadow: 0 0 14px rgba(255, 56, 56, 0.5), 0 4px 12px rgba(0, 0, 0, 0.8);
+}
+
+#tutorialHint {
+  margin-top: 4px;
+  font-size: clamp(13px, 1.5vw, 20px);
+  font-weight: 800;
+  color: #ffe9a0;
+  opacity: 0.92;
+}
+
 .intro-title {
   font-size: clamp(42px, 6vw, 88px);
   font-weight: 900;
